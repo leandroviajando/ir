@@ -1,5 +1,11 @@
 # Information Retrieval and Search
 
+```bash
+conda create -n ir python=3.11
+conda activate ir
+pip install -r requirements.txt
+```
+
 ## 1. Introduction
 
 Information retrieval is concerned with the _non-deterministic_ matching of a _query_ and _documents_ in large collections of _unstructured_ data (cf. data retrieval in a structured, deterministic context):
@@ -69,9 +75,11 @@ A weight is an importance indicator of a term regarding content:
 
 More informative than accuracy:
 
-$$\text{Precision (P)} = \frac{\textcolor{blue}{\text{retrieved}} \land \textcolor{red}{\text{relevant}}}{\textcolor{blue}{\text{retrieved}}}
+$$
+\text{Precision (P)} = \frac{\textcolor{blue}{\text{retrieved}} \land \textcolor{red}{\text{relevant}}}{\textcolor{blue}{\text{retrieved}}}
 \qquad \qquad
-\text{Recall (R)} = \frac{\textcolor{blue}{\text{retrieved}} \land \textcolor{red}{\text{relevant}}}{\textcolor{red}{\text{relevant}}}$$
+\text{Recall (R)} = \frac{\textcolor{blue}{\text{retrieved}} \land \textcolor{red}{\text{relevant}}}{\textcolor{red}{\text{relevant}}}
+$$
 
 ```python
 import numpy as np
@@ -99,7 +107,7 @@ plt.plot(pr_recall_levels[1], pr_recall_levels[2])
 plt.show()
 ```
 
-A single trade-off measure: $$F = \frac{(\beta^2 + 1) PR}{\beta^2 P + R}$$
+A single trade-off measure: $F = \frac{(\beta^2 + 1) PR}{\beta^2 P + R}$
 
 - $\beta < 1$: emphasise precision
 - $\beta = 1$: harmonic mean (F1 score)
@@ -208,71 +216,285 @@ Representation as Bayesian Networks.
 | Easy integration of representations of different media, domain knowledge, semantic information, etc. |                                                             |
 | Good retrieval performance                                                                           |                                                             |
 
-## 3. Probabilistic Representations
+## 3. Probabilistic Representations: Topic Modelling
 
-_Topic modelling_: Unsupervised representation learning of latent topics.
+**Realisational chain** (Panini, 600-400BC):
 
-_Realisational chain_: Ideas → broad conceptual components of a text → sub-ideas →
-sentences → set of semantic roles → set of grammatical and
-lexical concepts → character sequences
+```mermaid
+flowchart TD
+  id1(Ideas) --> id2(broad conceptual components of a text) --> id3(sub-ideas) --> id4(sentences) --> id5(set of semantic roles) --> id6(set of grammatical and lexical concepts) --> id7(character sequences)
+```
+
+**Topic modelling**: Unsupervised representation learning of latent topics.
+
+- Uncover the hidden topical patterns of the collection.
+- Annotate the documents according to these topics.
+- Use the annotations to organize, summarize and search the texts.
 
 **Generative model for documents**:
 
 - Select a document $d_j$ with probability $P(d_j)$.
-- Pick a latent class / concept $z_k$ with probability $P(d_j)$.
+- Pick a latent class / concept $z_k$ with probability $P(z_k \mid d_j)$.
 - Generate a word $w_i$ with probability $P(w_i \mid z_k)$.
+
+That is, the observed word distributions $P(w \mid d)$ are modelled as the per-topic word distributions per topic $P(w \mid z)$ times the per-document topic distributions $P(z \mid d)$.
 
 Trained on a large corpus, learn:
 
-- Per-document topic distributions.
-- Per-topic word distributions.
+- Per-topic word distributions $P(w \mid z)$.
+- Per-document topic distributions $P(z \mid d)$.
 
 ### [Latent Semantic Analysis (LSA)](https://www.geeksforgeeks.org/latent-semantic-analysis/)
+
+Derive semantic information from a word-document matrix:
+
+<img alt="lsa" src="https://media.geeksforgeeks.org/wp-content/uploads/20210406165951/Screenshot20210406165933.png">
 
 Weakness: cannot capture polysemy. Probabilistic topic models are a solution to this.
 
 ### Probabilistic latent semantic analysis (pLSA)
 
-Maximum likelihood: parameters that maximise the likelihood of the observed data. Exact likelihood is intractable, we have to _approximate_ it, e.g., by:
+_pLSA and LDA rely on a number of topics set a priori_.
 
-- Expectation-maximization: iteratively estimate the probability of unobserved, latent variables until convergence.
-- Gibbs sampling: update parameters sample-wise.
+Maximum likelihood: parameters that maximise the likelihood of the observed data. Exact likelihood is intractable, we have to _approximate_ it - by unsupervised learning from _raw_ data, approximate inference methods for parameter estimations in Bayesian networks:
+
+- Expectation-maximization: _iteratively estimate_ the probability of unobserved, latent variables until convergence.
+- Gibbs sampling: update parameters _sample_-wise.
 - Variational inference: approximate the model by an easier one.
 
-These models are _unsupervised_ and learn from _raw_ data!
+### Expectation-Maximisation (EM)
 
-- Per-document topic distributions: $P(w_i \mid z_k)$.
-- Per-topic word distributions: $P(z_k \mid d_j)$.
+1. Initialise per-topic word distributions: $P(z_k \mid d_j)$ and per-document topic distributions $P(w_i \mid z_k)$. Then until convergence:
+2. Expectation: compute probability of a topic $z_k$ for a word $w_i$ in a document $d_j$.
 
-EM: TODO.
+   $$P(z_k \mid d_j, w_i) = \frac{P(w_i \mid z_k) P(z_k \mid d_j)}{\sum_{l=1}^K{ P(w_i \mid z_l) P(z_l \mid d_j) }}$$
 
-### Latent Dirichlet allocation (LDA)
+3. Maximisation: recalculate distributions by weighing expected probabilities by the frequency of $w_i$ in $d_j$ normalised across the topics
 
-Gibbs sampling:
+   $$P(w_i \mid z_k) = \frac{ \sum_{j=1}^D{ \#(d_j, w_i) P(z_k \mid d_j, w_i) } }{ \sum_{j=1}^D{ \sum_{i=1}^M{ \#(d_j, w_i) P(z_k \mid d_j, w_i) } } }$$
 
-Inference: he updating and sampling cycle from Gibbs sampling can be directly used for inference. DA can be applied to unseen documents!
+   and across the document collection
+
+   $$P(z_k \mid d_j) = \frac{ \sum_{i=1}^M{ \#(d_j, w_i) P(z_k \mid d_j, w_i) } }{ \sum_{i=1}^M{ \sum_{l=1}^K{ \#(d_j, w_i) P(z_l \mid d_j, w_i) } } }$$
+
+   where $n(d_j , w_i)$ is the frequency of $w_i$ in $d_j$, $K$ is the number of topics, $D$ is the number of documents in the collection and $M$ is the number of words in the vocabulary.
+
+Disadvantages:
+
+- risk of getting stuck in a local maximum.
+- $P(z_k \mid d_j)$ is only learned for documents in the training set; for new documents: repeat EM by clamping the previously learned per-topic word distributions (called folding in).
+
+### Latent Dirichlet Allocation (LDA)
+
+Gibbs sampling - for training, and for inference (incl. for unseen documents!):
+
+1. Update topic assignment probabilities:
+
+   $$P(z_{ji} = k \mid z_{\lnot ji}, \mathbf{w}, \alpha, \beta) \propto \frac{n_{j, k, \lnot i} + \alpha}{n_{j, \cdot, \lnot i} + K \alpha} \, \, \frac{v_{k, w_{ji}, \lnot} + \beta}{v_{k, \cdot, \lnot} + \lvert V \rvert \beta}$$
+
+2. Sample topic assignments:
+
+   $$z_{ji} \sim P(z_{ji} = k \mid z_{\lnot ji}, \mathbf{w}, \alpha, \beta)$$
 
 ## 4. Algebraic Representations
 
+- **One-hot encoding**: $[1, 0, 0], [0, 1, 0], [0, 0, 1], \dots$ with $t$ the size of the vocabulary, for discrete concepts such as words; no notion of similarity.
+- **Bag of words (BoW)**: term frequency; ignores order of words; can be extended to bag of n-grams to capture local ordering of words.
+- **Dense distributed representations**: each word represented by a dense vector (point in vector space) usually normalised between -1 and 1; dimension $k$ of the semantic representation usually much smaller than the vocabulary, $k \ll t$; obtained from LSI or neural networks.
+- **Sparse distributed representations**.
+
 ### Latent Semantic Indexing (LSI)
 
-### Neural Network-Based Word Embeddings
+LSI assumptions:
 
-### Representing documents and queries
+- The semantic information can be derived from a
+  word-document co-occurrence matrix.
+- The context of a word is defined as a document (although considering smaller contexts is possible).
+- The words and documents can be represented as points in the Euclidean space.
+
+Term vectors are mapped into a low dimensional space
+associated with statistical concepts by means of dimensionality reduction. Retrieval of documents even when the query index terms are absent!
+
+**Singular Value Decomposition (SVD)** aims to minimise reconstruction error by representing a matrix $A$ in a lower $k$-dimensional space in a way that keeps maximum variance. Generally a value of $k$ that works well on a development set is chosen.
+
+### Neural Network-Based Representations
+
+**Word embeddings**: each word is associated with a real-valued vector in $d$-dimensional space (usually $d = 100 - 1000$) learned by a neural network trained on language modelling in an **unsupervised** fashion.
+
+Words are thus represented by the _local context_ in which they occur.
+
+- Static embeddings: word2vec, CBOW, [skip-gram NNLM](https://blog.cambridgespark.com/tutorial-build-your-own-embedding-and-use-it-in-a-neural-network-e9cde4a81296).
+- Contextual embeddings: ELMo, BERT, GPT.
+
+|              | CBOW                                                       | Skip-gram NNLM                                          |
+| ------------ | ---------------------------------------------------------- | ------------------------------------------------------- |
+| Input        | context words within short window _without their position_ | the current word                                        |
+| Hidden layer | linear function                                            | linear function                                         |
+| Output       | the current word                                           | context words within short window, _not their position_ |
+
+Word vectors are simple and effective and the trained model can also be used as a language model but it cannot handle polysemy and is a black box.
+
+[BERT](https://www.kaggle.com/code/mdfahimreshm/bert-in-depth-understanding):
+
+- Masked language modelling: 15% of random input tokens in each sequence are masked and the system has to predict the masked token.
+- Next sentence prediction: 50% of the cases B is the actual next sentence of A, 50% of the cases B is just a random sentence from the corpus.
+
+BERT-BASE: 12 transformer encoding layers, dimension of the hidden layers: 768, 12 self attention heads, 110 million parameters. For each token of the input we have 12 separate vectors each of dimension 768
+
+- Word vector: use output of last hidden layer, or combination of vectors of layers (e.g., output of last four layers) by summing or concatenation
+- Sentence vector: vector of CLS token or average last hidden layer of each token (vector dimension: 768)
+
+How many dimensions should we allocate for each word? imension is a hyperparameter that can be optimized, typically the aim is a good trade-off between speed and task accuracy.
+
+### Word Embeddings in IR
+
+_How to represent document and queries based on word vectors?_
+
+**Bag of words (BoW)**: document and query are represented as term vectors with term weights $\geq 0$ in a $t$-dimensional space, where $t$ is the number of features (here words) measured: $\mathbf{d}_j = [w_{1j}, w_{2j}, \dots, w_{tj}]$, $\mathbf{q} = [w_{1q}, w_{2q}, \dots, w_{tq}]$.
+
+**Centroid model**: document and query are represented as term vectors $\mathbf{v}_i$ in a $d$-dimensional space, where $p$ is the number of words in $\mathbf{d}_j$ and $q$ is the number of words in $\mathbf{q}$: $\mathbf{d}_j' = \frac{\mathbf{v}_1 + \mathbf{v}_2 + \dots + \mathbf{v}_p}{p}$, $\mathbf{q}' = \frac{\mathbf{v}_1 + \mathbf{v}_2 + \dots + \mathbf{v}_q}{q}$.
+
+Combined with a traditional bag-of-words model: $(1 - \alpha) \cos(\mathbf{d}_j, \mathbf{q}) + \alpha \cos(\mathbf{d}_j, \mathbf{q})$.
+
+_How to build similarity or distance metrics that operate on sets of word vectors?_
+
+**[Word mover's distance (WMD)](https://vene.ro/blog/word-movers-distance-in-python.html)**: treats text documents as a point cloud of embedded words.
+
+WMD words flow in the direction of the arrows when one document has more context than the other. The thicker arrows indicate the flow to the closest word, the thin arrows indicate excess flow.
+
+The distance between the two documents is the minimum cumulative distance that all words in document 1 need to travel to exactly match document 2.
+
+**Language retrieval model**:
+
+$$p(q_i \mid d_j) = \sum_{w_i \in d_j}{ P(q_i \mid w_i) P(w_i \mid d_j) }$$
+
+where $P(q_i \mid w_i)$ is e.g. computed based on corresponding word vectors $\mathbf{q}_i$ and $\mathbf{w}_i$
+
+$$P(q_i \mid w_i) = \frac{\cos(\mathbf{q}_i, \mathbf{w}_i)}{ \sum_{\mathbf{w} \in V}{\cos(\mathbf{q}_i, \mathbf{w})} }$$
+
+where $V$ is the vocabulary.
 
 ## 5. Multimedia Information Retrieval
 
-Representation and retrieval with multimedia: text, images, video, etc.
+- Modality: a certain type of information and/or the representation format in which information is stored.
+- Medium: means whereby this information is delivered to the senses of the interpreter.
+- Multimodal: coming from multiple information sources, which consist of multiple types of content, i.e., multimedia content.
+- Cross-modal: bridging several modalities.
 
-Multimedia data types and features
+Multimedia content is heterogeneous, each medium has its own type of features to form content representations. Neural network-based representations are increasingly used for each medium, and are useful to bridge between modalities!
 
-Concept detection
+### Image Processing
 
-Cross-modal indexing of content: latent Dirichlet allocation and deep learning methods
+Images disambiguate language. Images can help with NLP tasks, e.g. coreference resolution.
 
-Cross-modal and multimodal retrieval and recommendation models
+- **Segmentation** in homogeneous segments: based on homogeneous (e.g., color) pixels.
+- **Object detection**, e.g., based on segments or region proposal network.
+- **Image captioning**
+- **Scene graph detection**: complex image description, difficult to automate.
 
-Illustrations with spoken document, image, video and music search
+### Video Processing
+
+Video data = sequence of frames (still images) shown at a specific rate per time unit.
+
+Video segmentation:
+
+- Detection of video shot breaks, camera motions.
+- Boundaries in audio material (e.g., other music tune, changes in speaker).
+- Textual topic segmentation of transcripts of audio and of close-captions.
+- Heuristic cues (e.g., return of anchor person).
+- Combinations of the above.
+
+Video segment:
+
+- Basic unit for retrieval.
+- Indexed with objects and activities (cf. image processing).
+
+### Audio Processing
+
+- Segmentation into sequences: basic units for retrieval.
+- Indexing:
+  - Speech: transcripts of text.
+  - Music: acoustic analysis (e.g. interval and rhythm detection, timbre and chord information, vocal timbre feature, vocal pitch feature, genre based feature, instrument based feature).
+
+Semantic music annotation:
+
+- Traditionally relies on many handcrafted features and machine learning models such as SVMs.
+- Today the models rely on deep neural architectures such as recurrent neural networks (RNNs), convolutional neural networks (CNNs) or their combination.
+
+### Cross-Media Linking of names and faces
+
+Detection of faces in the image and of names in the text + linking. Objective: Find the most probable of the (many) possibilities. Optimisation problem solved with the EM algorithm.
+
+Assumptions:
+
+- Faces of the same person should have similar visual characteristics (color and shape parameters).
+- A person is only shown once in the image.
+- All names in the text referring to the same person are conflated to 1 name.
+- On the basis of the structure of the text: some names are more likely to be shown (_picturedness_).
+- On the basis of the structure of the image, some faces have a larger chance to be named (_namedness_).
+
+Evaluation:
+
+- Evaluation with ”Faces in the wild” dataset: 11820 stories or image-text pairs with 5637 unique person faces and 8878 unique person names.
+- F1 score of 72% (see paper).
+- Impressive results given _no manual labelling_.
+
+### Cross-Modal Latent Dirichlet Allocation
+
+Learning of word representations from natural language corpora paired with images.
+
+LDA:
+
+- Trained on documents that contain visual and textual words compared to a model that is only trained on the textual data.
+- Evaluation: word similarity task.
+- Results: better and closer to how humans conceptualize certain words.
+
+### Joint Multimodal Representations
+
+- Early fusion: Feature level multimodal fusion: e.g., combined vector representation of textual features, visual features, metadata.
+- Late fusion: Decision level multimodal fusion: e.g., relevance is computed per modality and relevance scores are combined (e.g., summing, averaging, maximum, minimum).
+- Hybrid fusion, e.g. neural networks.
+
+### Multimedia Retrieval
+
+Classical multimedia retrieval:
+
+- Textual query
+- Content described with textual tags
+- Text-based retrieval model
+
+Multimedia query language:
+
+- Fixed number of predicates for expressing conditions on the attributes, structure and content (semantics) of multimedia objects.
+- Limited expressivity.
+- Users prefer to use natural language e.g. Show me platform 9 at 15:10 on December 7, 2013
+
+Query by example:
+
+- E.g., finding a similar text, image, audio fragment
+- Query and documents are in the same modality
+- Similarity/distance is computed between representations (e.g.,
+  feature vectors)
+- Query = audio fragment: entered via a Musical Instruments
+  Digital Interface (MIDI), query by humming
+
+### Cross-Modal Retrieval
+
+Training:
+
+- Given paired image-text examples: fragments of images and fragments of sentences are embedded in a common space
+- Learning of a mapping between the image and text fragments
+
+Testing:
+
+- Given image retrieve textual description
+- Given textual description retrieve image
+
+Retrieval:
+
+- Represent images – texts based in the obtained intermodal
+  vector space
+- Use image-text alignment/similarity score as retrieval/ranking model
 
 ## 6. Learning to Rank
 
