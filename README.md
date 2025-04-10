@@ -1,9 +1,11 @@
 # Information Retrieval and Search
 
+TODO: change `ir/blob/wip/` to `ir/blob/main/`
+
 ```bash
-conda create -n ir python=3.11
+conda config --set channel_priority strict
+conda env create -f environment.yml
 conda activate ir
-pip install -r requirements.txt
 ```
 
 ## 1. Introduction
