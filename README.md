@@ -1056,11 +1056,13 @@ Data compression:
   - Beyond: e.g., JPEG, MPEG
     Encoder (compressor) and decoder (decompressor)
 
+[Huffman coding](https://www.geeksforgeeks.org/huffman-coding-greedy-algo-3/) is a lossless data compression algorithm which assigns variable-length codes to input characters, whose lengths are based on the [frequencies of corresponding characters](https://en.wikipedia.org/wiki/Letter_frequency).
+
 Complexity:
 
 - Time:
   - Compressing: $n-1$ iterations (TODO: check slides again, diagram for iterations?) where nodes are sorted, $\mathcal{O}(n \log{n})$
-  - Decompressing (assigning codewords to symbols): $\mathcal{O}(n)$
+  - Decompressing (assigning codewords to symbols): $\mathcal{O}(n)$ (or $\mathcal{O}(\log{n})$ if sorted, check this again)
 - Space: needs a preamble (dictionary of symbols and codes) for decompression
   - Canonical Huffman codes save space.
 
@@ -1095,40 +1097,44 @@ Cluster representation:
 - Centroid: average vector of objects in each cluster.
 - Representative object, e.g. medoid object that has the least average (or total) distance or largest average similarity with all other objects of its cluster.
 
-Distance and similarity functions: (see [Retrieval Models](#2-retrieval-models))
+Distance and similarity functions (see also [Retrieval Models](#2-retrieval-models)): Cluster methods often use a matrix that indicates the distance or
+the similarity between each pair of objects.
 
 - Symmetric functions: e.g., Euclidean distance, cosine function, ...
 - Asymmetric functions: e.g., Kullback-Leibler divergence
 - Other application-dependent functions or kernel functions that compute the similarity between structured objects (e.g., strings, trees)
 
-Proximity functions between two clusters:
+How to define distance (or proximity) between clusters? Proximity functions between two clusters:
 
 - Maximum proximity: defines proximity based on their most similar pair of objects
 - Minimum proximity: defines proximity based on their least similar pair of objects
 - Average proximity: defines proximity based on the average of the similarities between all pairs of objects
 - Mean proximity: defines proximity based on the similarity of the representative (e.g., centroid, medoid) of each cluster
 
+TODO: are average and mean proximity the same, if using a centroid or medoid?
+
 Cluster algorithm types:
 
 - Sequential algorithms: Build the clustering in one or few iterations.
   - Single pass algorithm: in one pass all n objects are assigned to their closest cluster based on a threshold similarity value
-- Hierarchical algorithms
-  Agglomerative clustering:
-  - Starts from $n$ individual objects which in consequent steps are grouped in more general clusters and finally into $1$ cluster
-  - Methods differ in their definition of proximity between clusters:
-    - Single link(age) (nearest neighbor) clustering:
-      - Use of the maximum proximity function
-      - Might generate drawn out clusters
-    - Complete link(age) (furthest neighbor) clustering:
-      - Use of the minimum proximity function
-      - Tends to produce very compact clusters with small diameter
-    - Group average link(age)
-      - Use of the average proximity function
-      - Generates roughly ball shaped clusters
-      - Efficient variant: based on the mean proximity function
-  - Divisive clustering: A complete collection of n objects is divided in smaller and smaller groups until the $n$ single objects are found
-    - Iteratively split clusters in a few clusters by means of a partitioning algorithm
-    - Distinct advantage: possible to generate few large clusters early in the clustering process
+  - Downside: TODO
+- Hierarchical algorithms:
+  - Agglomerative clustering:
+    - Starts from $n$ individual objects which in consequent steps are grouped in more general clusters and finally into $1$ cluster
+    - Methods differ in their definition of proximity between clusters:
+      - Single link(age) (nearest neighbor) clustering:
+        - Use of the maximum proximity function
+        - Might generate drawn out clusters
+      - Complete link(age) (furthest neighbor) clustering:
+        - Use of the minimum proximity function
+        - Tends to produce very compact clusters with small diameter
+      - Group average link(age)
+        - Use of the average proximity function
+        - Generates roughly ball shaped clusters
+        - Efficient variant: based on the mean proximity function
+    - Divisive clustering: A complete collection of n objects is divided in smaller and smaller groups until the $n$ single objects are found
+      - Iteratively split clusters in a few clusters by means of a partitioning algorithm
+      - Distinct advantage: possible to generate few large clusters early in the clustering process
 - Algorithms that optimize an objective function $J$; the number of clusters $k$ is usually fixed
   - K-means
   - Spectral clustering: The collection of objects is seen as an undirected graph, and the task of clustering is to find the best cuts in the graph optimizing certain criterion functions
@@ -1149,7 +1155,7 @@ Evaluation:
 - In case of ground truth clusters:
   - E.g. Normalized Mutual Information (NMI)
 
-Deep clustering: Optimizing objective is typically composed of two parts:
+Deep clustering (based on an autoencoder): Optimizing objective is typically composed of two parts:
 
 1. Network loss: feature learning: e.g., reconstruction loss of an autoencoder (AE), of a variational autoencoder (VAE) or the adversarial loss of a generative adversarial network (GAN)
 2. Clustering loss: encourages the feature points to form groups or become more discriminative: e.g., k-means loss, penalization of proximity to each cluster centroid
@@ -1193,9 +1199,9 @@ Cluster-based retrieval: documents similar in content tend to be relevant to the
 
 - Clustering of documents in the collection, clusters are represented e.g. by their centroid.
 - Query is matched against cluster centroids.
-- For partition clustering: matching condition, e.g., minimum similarity threshold to the centroid.
+- For _partition clustering_: matching condition, e.g., minimum similarity threshold to the centroid.
   - All documents in the matched clusters are returned
-- For hierarchical clustering: tree is processed downward, taking the highest scoring branch, until some stopping condition (e.g., minimum similarity threshold) is met.
+- For _hierarchical clustering_: tree is processed downward, taking the highest scoring branch, until some stopping condition (e.g., minimum similarity threshold) is met.
   - Subtree at that point is returned
 
 Clustering on huge document collections is not feasible. Solutions:
@@ -1220,19 +1226,160 @@ In summary, clustering is a valuable unsupervised technique that can be applied 
 
 Clustering can be useful in a supervised setting (useful for learning-to-rank, see lecture 6). E.g. Chen et al. (2017) use intra and inter-cluster objectives and found it to decrease the generalization error of models.
 
-## 10. Categorization
+Inter-cluster distances < intra-cluster distances. TODO: see textbook.
 
-TODO: <https://opencourse.inf.ed.ac.uk/sites/default/files/2024-11/ttds24_16text-classification.pdf>
+Scatter-gather approach: New York Times News -> Scatter -> Iraq, Oil, Germany -> Gather -> International stories -> Scatter -> Politics, Germany, Africa, Oil, etc. -> Gather -> Smaller International Stories -> Scatter -> ...
+
+## 10. Categorization
 
 Semantic labelling of documents for filtering, using supervised learning, e.g. spam detection.
 
-Feature selection, naive Bayes model, support vector machines, (approximate) k-nearest neighbor models
+Text classification / categorization: assigning controlled language descriptors to document content.
 
-Deep learning methods
+$$h: D \rightarrow C$$
 
-Multilabel and hierarchical categorization
+where $D = \{\bm{x}_1, \bm{x}_2, \dots\}$ is a domain of data items, and $C = \{c_1, c_2, \dots\}$ is a finite set of classes (the classification scheme).
 
-Convolutional neural network (CNN) based hierarchical categorization
+Text classification is the process of classifying documents into predefined categories based on their content.
+
+- Input: Text (document, article, sentence)
+- Task: Classify into predefined one/multiple categories
+- Categories:
+- Binary: relevant/irrelevant, spam .. etc.
+- Few: sports/politics/comedy/technology
+- Hierarchical: patents
+
+Example categories: topics (hierarchically ordered, e.g. finance, sports), labels (e.g. cat, dog), binary (relevant or not, spam or not).
+
+This is a supervised learning task: relies on _annotated_ training data.
+
+Types of problems:
+
+- Binary: item to be classified into one of two classes, $h: D \rightarrow C, \, C = \{c_1, c_2\}$.
+- Single-label multi-class (SLMC): item to be classified into only one of $n$ possible classes, $h: D \rightarrow C, \, C = \{c_1, \dots, c_n\}, \, n > 2$.
+- Multilabel (multi-class, MLMC) classification: classes are not mutually exclusive, item to be classified into none, one or more, classes, $h: D \rightarrow 2^C, \, C = \{c_1, \dots, c_n\}, \, n > 1$ - i.e. $n$ independent binary classification problems.
+- Hierarchical classification: hierarchical structure.
+- Extreme classification: find _most relevant_ labels in extremely large label set.
+
+Text classification may be performed according to several
+dimensions (“axes”) orthogonal to each other:
+
+- by _topic_; by far the most frequent case, its applications are global
+- by _sentiment_; useful in market research, online reputation management, social science and political science
+- by _language_ (a.k.a. “language identification”); useful, e.g., in query processing within search engines
+- by _genre_; e.g., AutomotiveNews vs. AutomotiveBlogs, useful in website classification and others;
+- by _author_ (a.k.a. “authorship attribution”), by native language (“native language identification”), or by gender; useful in forensics and cybersecurity
+- by _usefulness_; e.g., product reviews
+
+Labelled training data is typically limited in size but the feature space of documents tends to be large.To avoid the curse of dimensionality, it is important to reduce the dimensions of the feature space.
+
+Feature extraction: Transformation of the features into latent representations, e.g. using LSI or LDA.
+
+- Simplest form: Bag-of-words (BOW)
+  - Each term in a document is a feature
+  - Feature space size = vocabulary in all docs
+  - Standard IR preprocessing steps are usually applied
+    - Tokenisation, stopping, stemming
+- Other simple features forms:
+  - Word n-grams (bigrams, trigrams, ….)
+    - Much larger + more sparse
+- Sentence structure:
+  - POS (part-of-speech tags)
+  - Syntactic tree structure
+- Topic-based features:
+  - LDA topics
+  - NEs (named entities) in text
+  - Links / Linked terms
+- Non-textual features:
+  - Average doc\sentence\word length
+  - % of words start with upper-case letter
+  - % of links/hashtags/emojis in text
+
+Supervised vs. unsupervised feature selection: frequent item set or hyperclique patterns vs. selecting based on highest relevance scores by chi-square, information gain, pointwise mutual information, etc.
+
+Xi-Squared measures degree of dependence between an _observed_ and an _expected_ distribution. the context of categorization, it measures the fit between the observed frequency of a discrete feature in the training example set and its expected frequency:
+
+- If the feature occurs with equal frequency in documents that are relevant for a specific class and in documents that are are not relevant for this class, the feature and the class are independent.
+- The feature is not useful to predict the class.
+
+Features with high Xi-Squared value are considered strongly related to the category and are selected. Caution: unreliable without enough data, e.g. when expected cell frequency < 5 or n< 50.
+
+Mutual Information:
+
+- How much we learn from the presence or absence of term 𝑡" about whether or not a document is in class $c$!
+- Often used in feature selection in text classification
+
+Feature (or representation) learning: word embeddings (pre-trained with neural networks as unsupervised language models, e.g. BERT), feature representations trained during the categorisation task (e.g. convolutional neural networks).
+
+For binary classification, essentially any supervised learning algorithm can be used for training a classifier; classical choices include Support vector machines (SVMs), Random forests, Naïve Bayesian methods, Lazy learning methods (e.g., k-NN), Logistic Regression, ...
+
+The “No-free-lunch principle” (Wolpert, 1996) - there is no learning algorithm that can outperform all others in all contexts. Implementations need to cater for:
+
+- the very high dimensionality
+- the sparse nature of the representations involved
+
+For Multiclass classification, some learning algorithms for binary classification are “SLMC-ready”; e.g., Decision trees, Random forests, Naive Bayesian methods, Lazy learning methods (e.g., k-NN), Neural networks.
+
+- For other learners (notably: SVMs) to be used for SLMC
+  classification, combinations / cascades of the binary versions
+  need to be used, e.g. multi-class classification SVM. Could be directly used for MLMC as well.
+
+- Naive Bayes: posterior probability that an object belongs to a class given the features of the object: $P(c_j \mid t_1, \dots, t_m) \propto P(c_j) \prod_{i=1}^m{P(t_i \mid c_j)}$.
+  - Advantages: simple and efficient (computes probability in one pass).
+  - Disadvantages: independence assumptions, probabilities are approximations and not accurate - the values are either close to zero or one.
+- [Support vector machines](https://www.datacamp.com/tutorial/svm-classification-scikit-learn-python):
+  - [Kernel trick](https://towardsdatascience.com/the-kernel-trick-c98cdbcaeb3f): mapping non-linearly separable data to a feature space where they are linearly separable.
+  - Advantages: no need for a-priori feature selection (although may help with efficiency), can cope with many (noisy) features; text categorisation problems tend to be linearly separable.
+- (Approximate) [k-nearest neighbor models](https://vitalflux.com/k-nearest-neighbors-explained-with-python-examples/)
+  - Training: storing training examples; prediction: comparing with each training example and assigning the label of the $k$ most similar (closest) examples.
+  - Advantages: conceptually simple, no learning.
+  - Disadvantages: computationally expensive for many examples and many classes.
+
+[Deep learning methods](https://thinkingneuron.com/how-to-use-artificial-neural-networks-for-classification-in-python/): owadays the standard for categorization because they learn features during training.
+
+Multilabel and hierarchical categorization:
+
+- Multilabel approaches:
+  - Translation to binary classification problem, and assigning labels class per class.
+  - Problem transformation: one or more single-label classification tasks.
+  - Joint learning: modelling label dependency or label correlation.
+- [Hierarchical](https://towardsdatascience.com/https-medium-com-noa-weiss-the-hitchhikers-guide-to-hierarchical-classification-f8428ea1e076):
+  - Categories are organized in a hierarchical structure: Lower categories are specialization of or have a dependency on upper categories
+  - Challenges with large-scale taxonomies (e.g., Web)
+    - Higher nodes demand complex decision surfaces
+    - Deeper nodes are increasingly sparser
+
+Hierarchical local classifiers:
+
+Hierarchical global classifiers:
+
+Complexity of common approaches to classification
+
+- Training: O(nmL)
+- Testing: O(mL)
+- where n = number of training examples, m = dimensions of the feature representation and L = number of labels
+
+For extreme classification, this needs to be reduced. Slice algorithm (Jain et al, 2019):
+
+- Training: train classifier only with $\frac{n \log{L}}{L}$ most confusing negative examples. Complexity: $\mathcal{O}(nm \log{L})$.
+- Prediction: given a test point the algorithm quickly determines which region of the feature space the test point belongs to using _approximate nearest neighbour search_; classifier only evaluated for labels active in the region. Complexity: $\mathcal{O}(m \log{L})$.
+
+Holding out test data: it's important to avoid overfitting.
+
+Evaluation: Baselines
+
+- There are standard methods for creating baselines in text classification to compare your classifier with
+- Most popular/simplest baselines
+  - Random classification
+    - Classes are assigned randomly
+    - How much better is the classifier doing than random?
+  - Majority class baseline
+    - Assign all elements to the class that appears the most
+    - How much better you are doing than if you always picked the same thing output regardless of input?
+  - Simple algorithm, e.g. BOW
+    - Usually used when you introduce new interesting features
+
+Micro vs. macro evaluation metrics if classes are balanced or unbalanced.
 
 ## 11. Dynamic Retrieval and Search
 
