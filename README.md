@@ -81,7 +81,7 @@ Phenomenon of _clumping / contagion_ in text: majority of words appearing more t
 
 **[Benford's Law](https://www.youtube.com/watch?v=XXjlR2OK1kM)**: similar to Zipf's law for terms, the first digit of a number (e.g. in energy bills, population numbers, term frequencies) decays in a similar fashion: $P(d) = \log(1 + \frac{1}{d})$.
 
-**Heap’s law**: While going through documents, the number of new terms decreases over time: vocabulary growth $v(n) = k \times n^b, b < 1, \text{ typically } 0.4 < b < 0.7$.
+**Heap's law**: While going through documents, the number of new terms decreases over time: vocabulary growth $v(n) = k \times n^b, b < 1, \text{ typically } 0.4 < b < 0.7$.
 
 - _Inverse document frequency_: $N$ = no. of documents in the reference collection, $\text{df}_i = n_i$ = document frequency, i.e. no. of documents in the reference collection having index term $i$. Addresses the issue of constant rank-frequency! (log scale used to dampen effect, i.e. first occurrence is more important!)
 
@@ -711,16 +711,16 @@ Pooling:
 
 Pooling, does it work?
 
-- Judgments can’t possibly be exhaustive!
-  - It doesn’t matter: relative rankings of different systems remain the same!
+- Judgments can't possibly be exhaustive!
+  - It doesn't matter: relative rankings of different systems remain the same!
   - Chris Buckley and Ellen M. Voorhees. (2004) Retrieval Evaluation with Incomplete Information. SIGIR 2004.
-- This is only one person’s opinion about relevance
-  - It doesn’t matter: relative rankings remain the same!
+- This is only one person's opinion about relevance
+  - It doesn't matter: relative rankings remain the same!
   - Ellen Voorhees. (1998) Variations in Relevance Judgments and the Measurement of Retrieval Effectiveness. SIGIR 1998.
 - What about hits 101 to 1000?
-  - It doesn’t matter: relative rankings remain the same!
-- We can’t possibly use judgments to evaluate a system
-  that didn’t participate in the evaluation!
+  - It doesn't matter: relative rankings remain the same!
+- We can't possibly use judgments to evaluate a system
+  that didn't participate in the evaluation!
   - Actually, we can!
   - Justin Zobel. (1998) How Reliable Are the Results of Large-Scale Information Retrieval Experiments? SIGIR 1998
 
@@ -811,7 +811,7 @@ Issues specific to web:
 - Relevance:
   - No clear semantics, contrast:
     - "William Shakespeare"
-    - Author history’s? list of plays? a play by him?
+    - Author history's? list of plays? a play by him?
   - Inherent ambiguity of language:
     - polysemy: "Apple", "Jaguar"
   - Relevance highly subjective
@@ -1383,45 +1383,225 @@ Micro vs. macro evaluation metrics if classes are balanced or unbalanced.
 
 ## 11. Dynamic Retrieval and Search
 
-Reinforcement learning from user interactions.
+Dynamic information needs: users and documents are dynamic agents, their context and features change over time.
 
-Static versus dynamic models
+- Dynamic users: change behaviour over time and user history
+- Dynamic documents: topic trends, filtering, document content changes
+- Dynamic relevance: user-perceived relevance changes
+- Dynamic queries: for a fixed information need in a _session_, a user may issue multiple queries
 
-Markov decision processes
+Dynamic IR: propose solutions that are responsive to a changing environment, that learn from past interactions and that predict future utility.
 
-Multi-armed bandit models
+- Explicit, implicit (based on user clicks) or pseudo-relevance feedback [see lecture 2]
+- **Rocchio algorithm**: in a vector space retrieval model, a new query vecctor $q^*$ is computed at each interaction given the old query $q$ and the set of documents $D_\text{rel}$ judged relevant, and documents $D_\text{nrel}$ judged as not relevant:
 
-Modelling sessions
+$$q^* = \alpha q + \frac{\beta}{\lvert D_\text{rel} \rvert} \sum_{d \in D_\text{rel}}{d - \frac{\gamma}{\lvert D_\text{nre} \rvert}} \sum_{d \in D_\text{nrel}}{d}$$
 
-Online advertising
+### Dynamic retrieval for a query session
 
-Document segmentation, maximum marginal relevance
+- Search sessions and how to model them.
+- Bandit algorithms are well suited to Dynamic IR.
+  - There is a tradeoff between exploitation and exploration.
+  - This tradeoff can be handled in different ways.
+- Contextual bandit are particularly suited to recommendation systems.
 
-Summarization based on latent Dirichlet allocation models and long short-term memory (LSTM) networks
+Search session:
 
-Abstractive summarization with attention models
+- A session starts when a user issues a query, which is often unclear and under-specified.
+- The search engine retrieves a ranked list of relevant documents.
+- After examining the document titles and snippets, a user may click on some of the webpages.
+- A user's cognitive focus and understanding of the information need may change as they gain information from the documents.
+- The next **search iteration** occurs when the user reformulates the query, retrieving a new ranked list of documents.
+- A **search session** is composed of several query reformulations.
+- The session stops when the user is satisfied, frustrated or bored.
 
-Multidocument summarization, search results fusion and visualization
+Components of a search session:
+
+- A series of queries: $q_1, \dots, q_n$.
+- A series of returned documents: $D_1, \dots, D_n$ (each $D$ = set).
+- A series of clicks $C_1, \dots, C_n$ (each $C_i$ = set).
+
+Search session scoring with a language retrieval model:
+
+- Relevance of a document $d$ for a query $q_t$ at time $t$ is a function of current relevance, past actions of the user and past rewards.
+
+$$R(q_t , d) = P(q_t \mid d) + \gamma \sum_a{P(q_t \mid q_{t−1}, D_{t−1}, a)} \max_{D_{t-1}}{ P(q_{t−1} \mid D_{t−1}) }$$
+
+- The relevance score for a session of queries is aggregated across queries.
+
+See textbook.
+
+Neural networks for session search, e.g. CACM framework:
+
+- Relevance estimator: encodes both the inter-session contexts (i.e. the query context and the click context) and the current document to estimate the context-aware relevance $R$.
+- Examination predictor: utilises the intra-session context to predict the examination probability $E$.
+- Through a combination layer, $R$ and $E$ are integrated into the click prediction.
+
+Question: what is click prediction?
+
+### Dynamic IR with bandit algorithms
+
+[Multi-armed bandits](https://medium.com/udemy-engineering/building-a-multi-armed-bandit-system-from-the-ground-up-a-recommendations-and-ranking-case-study-b598f1f880e1):
+
+- Bandit algorithms are named after casino slot machines sometimes known as ”one-armed bandits”
+- Each arm generates a reward with a given probability
+- The (gambler's) aim is to find the arm producing the highest payoff and then to continue playing in order to accumulate the maximum reward possible
+- The number of plays is limited. The question is:
+- Should the gambler play the current arm known to produce the highest reward? (**Exploiting**)
+- Or should they keep on trying other arms in the hope of finding a better one? (**Exploring**)
+- The gambler needs to find a good trade-off between exploitation and exploration
+
+Bandit algorithms (RL)
+
+- Are easy to implement.
+- Do not require any a priori labelled training data.
+- Allow continual learning/testing which makes them applicable
+  to online application with a continuous stream of data.
+- Popular in IR and recommender systems:
+  - Search engine optimization and personalization
+    - Arms: documents
+    - Reward: number of clicks
+  - Recommender systems:
+    - Arms: product categories
+    - Reward: number of products purchased by the user
+  - Advertisement recommendation:
+    - Arms: ads
+    - Reward: number of purchases or clicks
+
+Bandit algorithms in IR:
+
+- Stochastic bandits: Arms consist of probability distributions and the goal of learning is to maximize the reward. See textbook.
+- Adversarial bandits (not seen in this lecture)
+- [Contextual bandits](https://subirverma.medium.com/simulating-content-personalization-with-contextual-bandits-6f4efb902af)
+  - Extension of the multi-arm bandit problem, where at each round the player has access not only to a bandit arm but also to a context (feature vector) associated with this iteration.
+  - E.g., in a news personalization system, each news article can be treated as an arm, and the features of both articles and users as contexts: the system then selects articles for each user to maximize click-through rate or dwell time.
+  - The mean reward of an action is a function of the context features and action features.
+  - E.g., LinRel algorithm, LinUCB algorithm.
+- Bayesian bandits: Thompson sampling
+
+TODO: [UCB](https://www.mltut.com/upper-confidence-bound-reinforcement-learning-super-easy-guide/): It relies on the empirical reward average of each term as well as the number of times an arm has been played ni (t). It explores actions which are more uncertain and exploits actions which have obtained high average rewards. See textbook.
+
+Thompson sampling: Randomized probabilistic algorithm based on Bayesian principles (Thompson, 1933). Old algorithm recently rediscovered and used in many practical applications. See textbook.
+
+### Bandit algorithms in recommendation
+
+- Used to improve personalization
+- Faster learning of relevant features
+- Detecting changes in user's interest
+- Enabling feedback to multiple items simultaneously
+
+Example interactions in recommender systems, in this case the Pandora music recommendation app and the StumbleUpon website discovery service. Users of both services receive recommended content and can optionally give feedback, resulting in an ongoing recommendation-feedback loop. Yang et al. (2015)
+
+Personalisation:
+
+- Recommending items based on:
+  - the background of the user,
+  - previous queries/purchased items.
+- Contextual bandits allow a system to balance two competing goals:
+  1. Maximizing user's satisfaction
+  2. Gathering information about the relevance of the match between a user query and content
+
+LinUCB for personalization of news recommendation: Contextual bandit algorithm which:
+
+- Sequentially selects news articles based on contextual information of the user and the articles.
+- Simultaneously adapts its article selection strategy based on user click feedback to maximize user clicks in the long run.
+
+### Evaluation
+
+- Evaluation with classical IR metrics such as MAP and nDCG.
+- The Cube Test (CT) which models the speed at which the user information need is met. See textbook
 
 ## 12. Question Answering, Conversational Search and Recommendations
 
 - IR-based (visual) QA
 - Conversational search and recommendation (including LLM-based chatbots)
 
-Retrieval based question answering
+Deep learning allows learning abstractions of content (text, images or both, or of other media) and bridging between modalities. QA and conversational search or recommendation are applications with growing interest where NNs perform very well. LLM-based chatbots are powerful but still have some limitations.
 
-Deep learning methods including attention models
+### (Retrieval-based) question answering (QA)
 
-Cross-modal question answering
+- Retrieval of information using a question posed in natural language
+- Document collection can be of any type (e.g., database with structured information, text, images, video, audio, or mixture of media)
 
-E-commerce search and recommendation
+---
+
+- Factoid:
+  - Who, what, when, where questions
+  - Usually answered by single entity or sentence
+  - Or answer generated from knowledge base
+  - Extensively studied in [TREC-QA competitions](http://trec.nist.gov/data/qa.html)
+- Non-factoid:
+  - Open ended nature of the question: there are typical a range of possible answers
+  - Answers can span multiple sentences with little term overlap with the question
+
+Neural networks are capable of learning complex relations based on relatively simple features, both for text, images and other media.
+
+- Used for relating non-factoid textual questions to their textual answers
+- Used for relating textual questions to images and to their textual answers
+
+In [LSTMs](https://colah.github.io/posts/2015-08-Understanding-LSTMs/), the forget gate controls how much of the memory to keep from the previous cell $C_{t-1}$ and the input gate controls how much of the new information from the current cell $\tilde{C}_t$ should be used. This information is then passed through a non-linearity (a $\tanh$) and controlled by the output gate.
+
+BiLSTM: Run LSTMs forward and backward through the sequence and combine the hidden nodes (here by element-wise summation, alternative: concatenation).
+
+Non-factoid QA: Input:
+
+- Positive examples: question + `<? >` + correct answer.
+- Negative examples: question + `<? >` + incorrect answer.
+
+### Conversational search and recommendation
+
+User-system interaction: the system asks questions to clarify the user's need when it is not confident with the result.
+
+1. Initial request -> Search module.
+   - Low confidence: Question module -> question to user.
+   - High confidence: response to user.
+2. Question response -> Search module.
+
+User-agent interactions in a conversational system
+
+- User actions:
+  - Revealing information about the current information need
+  - Modifying the information need (e.g., broadening/narrowing its scope)
+  - Navigating the information found by the agent
+  - Asking what the agent understands about the information need
+  - Closing a search session
+- Conversational agent actions:
+  - Eliciting information and explaining actions
+  - Asking for clarification
+  - Presenting information found (e.g., lists, summaries, comparisons)
+  - Suggesting alternative information needs
+
+Conversational search predictive tasks:
+
+- Predicting what agent action to do next (e.g., inquire, reveal, traverse, suggest)
+- Extracting information from a user’s turn to update the current information need
+- Deciding which questions to ask to elicit information
+- Predicting when to ask for clarification versus inferring unknown information about the user’s goal
+- Predicting when to suggest an alternative information need
+
+Multi-Memory Network (MMN) architecture for conversational search and recommendation.
+
+LLM-based chatbots:
+
+- Autoencoder: masked language modelling
+- Autoencoder vs autoregressive language modelling
+- [GPT-3 training data](https://www.unite.ai/gpt-3-few-shot-learning-for-language-model/)
+- BERT pre-training and fine-tuning (via few-shot prompting)
+- [Reward model to learn from human feedback](https://huggingface.co/blog/rlhf)
+- [RAG](https://towhee.io/tasks/detail/pipeline/retrieval-augmented-generation)
+- Limitations:
+  - [Hallucinations](https://flyingbisons.com/blog/hallucinations-of-chatgpt-4-even-the-most-powerful-tool-has-a-weakness)
+  - [Prompt injection](https://www.businessinsider.com/car-dealership-chevrolet-chatbot-chatgpt-pranks-chevy-2023-12)
+  - [Privacy](https://help.openai.com/en/articles/6783457-chatgpt-general-faq)
+  - Limited context window => difficulties with long documents.
+  - [Tokenisation](https://platform.openai.com/tokenizer)
 
 ## 13. [Retrieval Augmented Generation (RAG)](https://www.dailydoseofds.com/a-crash-course-on-building-rag-systems-part-1-with-implementations/)
 
 Retrieval Augmented Generation (RAG): Allows to add e.g., domain-specific information to the LLM
 
 1. Retrieves a set of relevant documents/paragraphs/sentences with a common information retrieval technique
-2. Models an interaction with a large language model (LLM) by prompting the LLM with the retrieved information as context (context aware reasoning)
-3. The LLM autoregressively generates the answer by attention over the prompt
+2. Models an interaction with a large language model (LLM) by prompting the LLM with the retrieved information as context (context-aware reasoning)
+3. The LLM autoregressively generates the answer by attending over the prompt
 
 TODO: <https://opencourse.inf.ed.ac.uk/sites/default/files/https/opencourse.inf.ed.ac.uk/ttds/2024/20-rag-handout.pdf>
