@@ -8,6 +8,47 @@ conda env create -f environment.yml
 conda activate ir
 ```
 
+## Key Concepts
+
+1. Term weighting
+   1. TF-IDF
+   2. Length normalisation
+   3. Augmented normalisation
+   4. Precision-recall graph
+2. Retrieval models
+   1. Boolean models
+   2. Vector space models
+   3. Probabilistic models: BM25; MLE
+3. Probabilistic representations (TODO: topic modelling?)
+   1. EM algorithm for pLSA (TODO: meaning?)
+   2. Gibbs sampling for LDA (TODO: meaning?)
+   3. SVD for LSI (TODO: meaning?) word embeddings
+4. Algebraic text representations
+   1. Dense vs. sparse word representations
+   2. Methods for building (dense) word representations
+5. Designing (multimedia) IR systems
+   1. Design an IR system, incl. components and training of model
+   2. Cross-modal retrieval with CLIP (jointly-trained image and text encoders)
+6. Learning to rank (L2R / LTR)
+   1. Mean Average Precision (MAP)
+   2. Normalised Discounted Cumulative Gain (nDCG)
+   3. Mean Reciprocal Answer Rank (MRAR)
+   4. LightGBM
+7. Web search
+   1. Crawling
+   2. PageRank
+   3. HITS
+8. Indexing and compression
+   1. Text compression: Huffman coding
+   2. Integer compression: unary, $\gamma, \delta, \omega$, Golomb-Rice, Simple-9, interpolative codes
+9. Clustering
+   1. Single-linkage agglomerative clustering
+   2. Complete-linkage agglomerative clustering
+   3. Average-linkage agglomerative clustering
+10. Classification
+    1. $\chi^2$
+    2. Naive Bayes
+
 ## 1. Introduction
 
 Information retrieval is concerned with the _non-deterministic_ matching of a _query_ and _documents_ in large collections of _unstructured_ data (cf. data retrieval in a structured, deterministic context):
@@ -26,8 +67,8 @@ Evaluation criteria in IR:
 Components:
 
 - Documents: elements to be retrieved, unstructured but unique ID, different modalities (web pages, emails, tweets, DNA, photos, videos, etc.)
+  - (Relevant) documents: key idea is that _relevant items are similar_!
 - Queries: text expressing user's information need, may be ambiguous or express multiple information needs (e.g. apple vs. Apple, jaguar vs. Jaguar), different modalities(keywords in web search, humming a tune in music search, etc.)
-- (Relevant) documents: key idea is that _relevant items are similar_!
 
 |             | DBs                                               | IR                                        |
 | ----------- | ------------------------------------------------- | ----------------------------------------- |
@@ -45,7 +86,7 @@ IR systems:
 
 Key idea: re-ordering does not destroy the topic.
 
-Most search engines use BoW. A match is measured by the degree of overlap between the document and the query. However, since word order is not considered, similarity measures will be the same for some distinct sentences. Alternatives include character n-grams or word n-grams.
+Most search engines use BoW. A match is measured by the degree of overlap between the document and the query. However, since word order is not considered, similarity measures will be the same for some distinct sentences. Alternatives include character n-grams (a sequence of n contiguous items from a given sample of text or speech, i.e. order matters!) or word n-grams (i.e. items are words specifically).
 
 ### Text Preprocessing
 
@@ -55,19 +96,19 @@ Idea: Identify the optimal form of the term to be indexed that will lead to bett
 
 1. Preparation of the document, e.g. removal of tags.
 2. Lexical analysis: tokenisation (typically split at non-letter characters, issues / special cases e.g. URLs, Chinese without spaces, German with composite words, "San" "Francisco" vs. "San Francisco").
-3. Removal of stopwords (optional; note: application-dependent, may be important e.g. "to be or not to be", "from A to B" - in web search trend to keep them, probabilistic retrieval models give them low weight; can manually exclude top $N$ terms).
+3. Removal of stopwords (optional; note: application-dependent, may in fact be important e.g. "to be or not to be", "from A to B" - in web search tend to keep them, probabilistic retrieval models give them low weight; can manually exclude top $N$ terms).
 4. Normalisation (optional; make words with different surface forms look the same):
    - Case folding, i.e. "A" -> "a".
    - Equivalence classes, e.g. "Ph.D.", "PhD".
    - Stemming, e.g. Porter algorithm, for morphological variations of words (limitations: different spellings, synonyms, irregular verbs; two types: dictionary-based, algorithmic; not words anymore but terms e.g. "inform retriev"!).
 5. Term weighting (optional).
 
-Same tokenisation/normalisation steps should be applied to documents & queries!
+The same tokenisation / normalisation steps should be applied to documents & queries!
 Stopword removal and normalisation can be done at indexing time or as part of query processing. Stemming usually achieves 5-10% improvement in retrieval effectiveness.
 
 ### Text Laws and Term Weighting
 
-Define for a query $q$ and a document $d$ the retrieval score as the sum of weighted terms $\text{score}(q, d) = \sum_{t \in q \cap d}{w_{td}}$.
+Define for a query $q$ and a document $d$ the retrieval score as the sum of weighted terms: $\text{score}(q, d) = \sum_{t \in q \cap d}{w_{td}}$.
 
 A weight is an importance indicator of a term regarding content:
 
@@ -75,13 +116,11 @@ A weight is an importance indicator of a term regarding content:
 
   $$w_{ij} = \text{tf}_{ij}$$
 
-**(Constant Rank-Frequency) [Law of Zipf](https://www.youtube.com/watch?v=fCn8zs912OE)**: rank-frequency exhibit a log-linear relationship: _the rank of a term by frequency times the probability of appearance of a term is constant over terms_ $r \times P_r \eqsim \text{constant} \rarr P_r \eqsim \frac{\text{constant}}{r} \rarr f(x) \eqsim \frac{1}{x}$; highly frequent words, e.g. "the", "of", "to", are _frequent in a lot of documents_ and might not necessarily be informative about a _particular_ document.
+(**(Constant Rank-Frequency) [Law of Zipf](https://www.youtube.com/watch?v=fCn8zs912OE)**: rank-frequency exhibits a log-linear relationship. This means that words follow a power law distribution where the most frequent word occurs approximately twice as often as the second most frequent word, three times as often as the third most frequent word, and so on. _The rank of a term_ ($r$, i.e. position of a term when sorting all terms are by their frequency of occurrence) _times its probability of appearance_ ($P_r$) _is constant over terms_: $r \times P_r \eqsim \text{constant} \rarr P_r \eqsim \frac{\text{constant}}{r} \rarr f(x) \eqsim \frac{1}{x}$. Highly frequent words, e.g. "the", "of", "to", are _frequent in a lot of documents_ and might not necessarily be informative about a _particular_ document.)
 
-Phenomenon of _clumping / contagion_ in text: majority of words appearing more than once in a text appear close to each other.
+(Phenomenon of **clumping / contagion** in text: majority of words appearing more than once in a text appear close to each other.)
 
-**[Benford's Law](https://www.youtube.com/watch?v=XXjlR2OK1kM)**: similar to Zipf's law for terms, the first digit of a number (e.g. in energy bills, population numbers, term frequencies) decays in a similar fashion: $P(d) = \log(1 + \frac{1}{d})$.
-
-**Heap's law**: While going through documents, the number of new terms decreases over time: vocabulary growth $v(n) = k \times n^b, b < 1, \text{ typically } 0.4 < b < 0.7$.
+(**[Benford's Law](https://www.youtube.com/watch?v=XXjlR2OK1kM)**: similar to Zipf's law for terms, the first digit of a number (e.g. in energy bills, population numbers, term frequencies) decays in a similar fashion: $P(d) = \log(1 + \frac{1}{d})$. The law applies in any base, not just base 10. It does not apply e.g. for bounded distributions like human heights.)
 
 - _Inverse document frequency_: $N$ = no. of documents in the reference collection, $\text{df}_i = n_i$ = document frequency, i.e. no. of documents in the reference collection having index term $i$. Addresses the issue of constant rank-frequency! (log scale used to dampen effect, i.e. first occurrence is more important!)
 
@@ -95,7 +134,7 @@ Phenomenon of _clumping / contagion_ in text: majority of words appearing more t
 
   $$w_{ij} = \frac{\text{tf}_{ij}}{\max_{1 < k < l}(\text{tf}_{kj})}$$
 
-- _Augmented normalised term frequency_: smoothing term $\alpha$ usually equal to $0.5$.
+- _Augmented normalised term frequency_: smoothing term $\alpha$ (usually equal to $0.5$) provides a way to control how much weight is given to term presence vs. frequency; in particular a term's presence alone carries information and receives a base weight, reduces the dominance of term frequency, and prevents zero weights:
 
   $$w_{ij} = \alpha + (1 - \alpha) \frac{\text{tf}_{ij}}{\max_{1 < k < l}(\text{tf}_{kj})}$$
 
@@ -118,7 +157,7 @@ Phenomenon of _clumping / contagion_ in text: majority of words appearing more t
   [1., 1.,    1., 1.,    1.  ]
   ```
 
-### Ranked Retrieval Evaluation: Effectiveness
+### Effectiveness: Ranked Retrieval Evaluation
 
 How "good" are the documents that are returned? Do the results satisfy user's information need?
 
@@ -126,7 +165,7 @@ How "good" are the documents that are returned? Do the results satisfy user's in
 - **Precision**: What fraction of the retrieved documents are relevant? $P = \frac{\textcolor{blue}{\text{retrieved}} \land \textcolor{red}{\text{relevant}}}{\textcolor{blue}{\text{retrieved}}} = \frac{TP}{TP + FP}$
 - **Recall**: What fraction of the relevant documents were retrieved? $R = \frac{\textcolor{blue}{\text{retrieved}} \land \textcolor{red}{\text{relevant}}}{\textcolor{red}{\text{relevant}}} = \frac{TP}{TP + FN}$
 
-Recall is difficult to measure on the web. TODO: why?
+Recall is difficult to measure on the web. (why? to measure recall you would need to know the total number of relevant documents available on the worldwide web; moreover, binary relevance judgements are difficult in the context of the web; therefore, web search typically focuses on metrics that don't require complete recall knowledge, i.e. Precision @ k, nDCG, user satisfaction measures based on click behaviour.)
 
 ```python
 import numpy as np
@@ -141,23 +180,32 @@ recall = lambda retrieved: retrieved_and_relevant[retrieved-1] / relevant.size
 
 all = np.arange(docs.size) + 1
 np.round(np.stack((all, precision(all), recall(all))), 2)
-array([[ 1.  ,  2.  ,  3.  ,  4.  ,  5.  ,  6.  ,  7.  ,  8.  ,  9.  , 10.  , 11.  , 12.  , 13.  , 14.  , 15.  , 16.  , 17.  , 18.  , 19.  , 20.  , 21.  , 22.  , 23.  , 24.  ],
+>>> array([[ 1.  ,  2.  ,  3.  ,  4.  ,  5.  ,  6.  ,  7.  ,  8.  ,  9.  , 10.  , 11.  , 12.  , 13.  , 14.  , 15.  , 16.  , 17.  , 18.  , 19.  , 20.  , 21.  , 22.  , 23.  , 24.  ],
        [ 1.  ,  1.  ,  1.  ,  0.75,  0.8 ,  0.67,  0.71,  0.75,  0.67,  0.6 ,  0.64,  0.58,  0.62,  0.57,  0.53,  0.5 ,  0.47,  0.5 ,  0.47,  0.45,  0.43,  0.41,  0.39,  0.42],
        [ 0.1 ,  0.2 ,  0.3 ,  0.3 ,  0.4 ,  0.4 ,  0.5 ,  0.6 ,  0.6 ,  0.6 ,  0.7 ,  0.7 ,  0.8 ,  0.8 ,  0.8 ,  0.8 ,  0.8 ,  0.9 ,  0.9 ,  0.9 ,  0.9 ,  0.9 ,  0.9 ,  1.  ]])
 
 pr_recall_levels = np.round(np.stack((relevant, recall(relevant), precision(relevant))), 2)
 pr_recall_levels
-array([[ 1.  ,  2.  ,  3.  ,  5.  ,  7.  ,  8.  , 11.  , 13.  , 18.  ,  24. ],
-       [ 0.1 ,  0.2 ,  0.3 ,  0.4 ,  0.5 ,  0.6 ,  0.7 ,  0.8 ,  0.9 ,  1.  ],
-       [ 1.  ,  1.  ,  1.  ,  0.8 ,  0.71,  0.75,  0.64,  0.62,  0.5 ,  0.42]])
+>>> array([[ 1.  ,  2.  ,  3.  ,  5.  ,  7.  ,  8.  , 11.  , 13.  , 18.  ,  24. ],  # doc positions (ranks) where relevant documents are found
+       [ 0.1 ,  0.2 ,  0.3 ,  0.4 ,  0.5 ,  0.6 ,  0.7 ,  0.8 ,  0.9 ,  1.  ],  # recall levels
+       [ 1.  ,  1.  ,  1.  ,  0.8 ,  0.71,  0.75,  0.64,  0.62,  0.5 ,  0.42]])  # precision values
 plt.plot(pr_recall_levels[1], pr_recall_levels[2])
 plt.show()
 ```
+
+Note:
+
+- In Zipf's Law: Rank refers to the position of a term when sorting all terms by their frequency of occurrence in a corpus. Here, the most frequent word has rank 1, the second most frequent has rank 2, etc.
+- In Precision-Recall Analysis: Rank refers to the position of a document in a retrieval system's results list. Here, the document at position 1 is the system's top result, position 2 is the second result, etc.
 
 Retrieve more documents?
 
 - Higher chance to find all relevant documents, i.e. higher recall.
 - Higher chance to find more irrelevant docs, i.e. lower precision.
+- Notice how precision generally decreases as recall increases (from 1.0 down to 0.42).
+
+This illustrates the fundamental trade-off in information retrieval: retrieving more documents (higher recall) typically comes at the cost of including more irrelevant documents (lower precision).
+In an ideal system, the **precision-recall curve** would maintain high precision (close to 1.0) across all recall levels, forming a horizontal line at the top of the graph. The degree to which the actual curve drops from this ideal indicates how well the retrieval system ranks relevant documents above non-relevant ones.
 
 A single trade-off measure: $F_\beta = \frac{(\beta^2 + 1) PR}{\beta^2 P + R}$
 
@@ -167,9 +215,24 @@ A single trade-off measure: $F_\beta = \frac{(\beta^2 + 1) PR}{\beta^2 P + R}$
 
 Breakeven point: point in the PR graph where $P = R$.
 
-How to take rank into account? **Precision @ K** where $K$ is a fixed number of documents: cut-off on the ranked list at rank $K$, then calculate precision. Perhaps appropriate for most web search: most people only check the top $K$ results. But averages badly. (TODO: why?)
+The **F-score** (particularly F1) combines precision and recall into a single metric that balances both concerns. Best for: Tasks where missing relevant documents is as problematic as returning irrelevant ones.
 
-**R-precision**: For a query with known $r$ relevant documents, R-Precision is the precision at rank $r$ (P@r). $r$ is different from one query to another! It examines the ideal case: getting all relevant documents in the top ranks. (TODO: is it realistic?)
+How to take rank into account? **Precision @ K** where $K$ is a fixed number of documents: cut-off on the ranked list at rank $K$, then calculate precision. Perhaps appropriate for most web search: most people only check the top $K$ results. But averages badly when aggregating across multiple queries. (why? doesn't account for the varying number of relevant documents across different queries; a fixed $K$ can be arbitrary if one query has 5 relevant documents and another has 50.)
+
+```python
+def precision_at_k(docs, k):
+    return docs[:k].sum() / k
+```
+
+**R-precision**: For a query with known $r$ relevant documents, R-Precision is the precision at rank $r$ (P@r). Note: $r$ _is different from one query to another_ (and solves the previous issue with Precision @ K)! It examines the ideal case: getting all relevant documents in the top ranks. (is it realistic? requires knowing the exact number of relevant documents in advance; especially in web search this is rarely possible, but useful in controlled test environments where the number of relevant documents is known.)
+
+```python
+def r_precision(docs):
+    r = docs.sum()  # Total number of relevant docs
+    return docs[:int(r)].sum() / r
+```
+
+More sophisticated metrics like Mean Average Precision (MAP), which accounts for the positions of relevant documents and adapts to the number of relevant documents per query, or Normalized Discounted Cumulative Gain (nDCG), which can handle graded relevance and normalizes scores, are preferred for comprehensive evaluation.
 
 The user would cut-off (stop inspecting results) at some point, say rank $x$. What is the optimal cut-off when a user would stop? **Mean Average Precision (MAP; most used)**: every time you find a relevant document, calculate P@x, then take the average at the end. This represents a mix between precision and recall, focused on finding relevant documents early (when $r = 1 \Rarr$ MAP = mean reciprocal rank $1 / k$):
 
@@ -188,6 +251,17 @@ Note: Relevance in this case is binary, but also graded relevance (e.g. 0 to 5) 
 $$\text{DCG}_k = \text{rel}_1 + \sum_{i=2}^k{\frac{\text{rel}_i}{\log_2(i)}}$$
 
 **Normalised Discounted Cumulative Gain (nDGC; most used for web search)** averages DCG numbers across a set of queries at specific rank values DCG@k; s.t. an ideal ranking would have an nDCG of $1.0$.
+
+**When to use which metric**:
+
+- Accuracy: When you need a simple overall correctness measure and your classes are balanced. Best for: Classification tasks where both positive and negative examples are equally important.
+- Precision: When the cost of false positives is high and you care about exactness of results. Best for: Legal search, medical diagnosis systems, spam filtering where showing irrelevant results is harmful.
+- Recall: When the cost of false negatives is high and finding all relevant items is critical. Best for: Intelligence gathering, legal discovery, disease screening where missing relevant information is costly.
+- F1 Score: When you need a balance between precision and recall, and both false positives and false negatives are important. Best for: Tasks where missing relevant documents is as problematic as returning irrelevant ones.
+- Precision@K: When user behavior is the focus and users typically only examine top results. Best for: Web search where users rarely look beyond the first page of results.
+- R-precision: For test collections where complete relevance judgments are available. Best for: Controlled test environments where the number of relevant documents is known.
+- MAP: When you need a comprehensive metric that values finding relevant documents early in the results. Best for: Evaluating overall system performance across multiple queries with varied numbers of relevant documents.
+- nDCG: When dealing with graded relevance judgments rather than binary relevance. Best for: Modern evaluation scenarios where documents can have different degrees of relevance to a query.
 
 ## 2. Retrieval Models
 
@@ -282,6 +356,25 @@ Let $L_d$ be the number of terms in document $d$, $\bar{L}$ be the average numbe
 
 $$w_{td} = \frac{\text{tf}_{td}}{k \frac{L_d}{\bar{L}} + \text{tf}_{td} + 0.5} \times \log_{10}\big( \frac{N - \text{df}_t + 0.5}{\text{df}_t + 0.5} \big)$$
 
+---
+
+TODO:
+
+For retrieval models, MLE typically involves estimating the probability that a document generated the query terms (query likelihood model)
+In Practice
+In a classical probabilistic retrieval model, MLE works by:
+
+Calculating the probability of observing the query terms given a document model: P(Q|D)
+Computing term frequencies and document frequencies
+Maximizing the likelihood function to find the most probable document for a given query
+The simplest form uses word occurrence frequencies:
+
+However, this creates the "zero frequency problem" where missing terms get zero probability. This is why smoothing techniques (like Jelinek-Mercer or Dirichlet) are often applied alongside MLE in probabilistic IR models.
+
+When ranking documents by MLE in a probabilistic model, you're essentially ordering results by their estimated probability of having generated the query.
+
+---
+
 ### Generative Relevance Models
 
 **Query likelihood model**: a document is a good match to a query if the document model is likely to have generated the query.
@@ -357,8 +450,6 @@ Trained on a large corpus, learn:
 - Per-topic word distributions $P(w \mid z)$.
 - Per-document topic distributions $P(z \mid d)$.
 
-TODO: <https://opencourse.inf.ed.ac.uk/sites/default/files/2024-11/ttds24_15comparing-corpora-2.pdf>
-
 ### [Latent Semantic Analysis (LSA)](https://www.geeksforgeeks.org/latent-semantic-analysis/)
 
 Derive semantic information from a word-document matrix:
@@ -400,6 +491,32 @@ Disadvantages:
 - $P(z_k \mid d_j)$ is only learned for documents in the training set; for new documents: repeat EM by clamping the previously learned per-topic word distributions (called folding in).
 
 ### Latent Dirichlet Allocation (LDA)
+
+---
+
+Unigram model: $w$ is a word, $N$ words in a document, $M$ documents in a corpus, $\bm{w}$ is a vector of words, i.e. a doc. Then the probability of a sample sentence is $p(\bm{w}) = \prod_{n=1}^N{p(w_n)}$.
+
+Mixture of unigram models: $z$ is the topic of a document. Then $p(\bm{w}) = \sum_z{p(z)} \prod_{n=1}^N{p(w_n)}$ is the probability of a sentence
+
+Probabilistic latent semantic indexing: the joint probability of a document and a a word is $p(d, w_n) = p(d) \sum_z{p(w_n \mid z) p(z \mid d)}$
+
+Latent Dirichlet Allocation: $\theta$ is the distribution over topics in a document. $\alpha$ is the parameter of a Dirichlet distribution giving possible topic distributions within documents. $\beta$ gives the word distributions within topics. Then $p(\theta, \bm{z}, \bm{w} \mid \alpha, \beta) = p(\theta \mid \alpha) \prod_{n=1}^N{p(z_n \mid \theta) p(w_n \mid z_n, \beta)}$.
+
+Model inference: exact inference intractable, instead use approximate methods such as Gibbs sampling or variational inference.
+
+Gibbs sampling for LDA: learn topic-word probabilities $\Phi$ and document topic-probabilities $\theta$; given a corpus, $\alpha, \beta$ and the probability that a word is from a topic conditional on the assignments of all other words to topics.
+
+1. assign each word a topic randomly
+2. calculate count matrices
+3. repeat until convergence (probabilistic algorithm - results depend on random initialisation and random samples!):
+   - for every document $d$
+     - for every word $i$
+       - decrement count matrices $C^{WT}$ and $C^{DT}$ for current topic assignment
+       - sample a new topic assignment
+       - increment count matrices $C^{WT}$ and $C^{DT}$ for new topic assignment
+4. calculate $\Phi$ and $\theta$
+
+---
 
 Gibbs sampling - for training, and for inference (incl. for unseen documents!):
 
@@ -611,7 +728,7 @@ Retrieval:
   vector space
 - Use image-text alignment/similarity score as retrieval/ranking model
 
-## 6. Learning to Rank (L2R)
+## 6. Learning to Rank (L2R / LTR)
 
 Learning to rank is a supervised retrieval model.
 
@@ -621,7 +738,7 @@ TODO: merge this list with below sections
 
 - Purpose
   - Learn a function automatically to rank results effectively
-- Point-wise approach
+- Point-wise approach (information filtering)
   - Classify document to R / NR
   - The function is based on features of a single object
     - e.g., regress the rel. score, classify docs into Relevant and NR
@@ -633,7 +750,7 @@ TODO: merge this list with below sections
   - Referred to as information filtering
     - Standing query + new documents coming
     - Decide whether a new document is R or NR
-- List-wise
+- List-wise (ranking, e.g. [SVM-Rank](http://svmlight.joachims.org/))
   - The function is based on a ranked list of items
   - given two ranked list of the same items, which is better
 - Pair-wise
@@ -650,11 +767,30 @@ What is relevance?
 1. First ranking is usually _unsupervised_ (based on the similarity between query and document representations): Assumes _topical relevance_, a _necessary but not sufficient_ condition. Gives some candidates.
 2. Second ranking is _supervised_ (_learning to rank_): motivational and interpretational relevance. Using only the candidates identified by the first ranking.
 
-Metrics for relevance ranking: # TODO: ranking metrics (Precision@k, MAP@K, nDCG@K)
+Metrics for relevance ranking:
 
 1. Rank-aware evaluation metrics: (TODO: compare again with first lecture and Edinburgh lecture)
 
    - [Mean Average Precision (MAP)](https://towardsdatascience.com/learning-to-rank-a-complete-guide-to-ranking-using-machine-learning-4c9688d370d4): mean average precision (AP) metrics over all queries
+
+   TODO: compare with following:
+
+   ***
+
+   The user would cut-off (stop inspecting results) at some point, say rank $x$. What is the optimal cut-off when a user would stop? **Mean Average Precision (MAP; most used)**: every time you find a relevant document, calculate P@x, then take the average at the end. This represents a mix between precision and recall, focused on finding relevant documents early (when $r = 1 \Rarr$ MAP = mean reciprocal rank $1 / k$):
+
+   $$AP = \frac{1}{r} \sum_{k=1}^n{P(k) \times \text{rel}(k)}, \quad MAP = \frac{1}{Q} \sum_{q=1}^Q{AP(q)}$$
+
+   - $r$ = number of relevant documents for a given query.
+   - $n$ = number of documents retrieved.
+   - $P(k) = P@k$.
+   - $\text{rel}(k) = 1$ if retrieved document @k is relevent, $0$ otherwise.
+   - $Q$ = number of queries in the test collection.
+
+   Note: Relevance in this case is binary, but also graded relevance (e.g. 0 to 5) can be used.
+
+   ***
+
    - [Discounted Cumulative Gain (DCG)](https://towardsdatascience.com/learning-to-rank-a-complete-guide-to-ranking-using-machine-learning-4c9688d370d4): for graded relevance; normalise with IDCG (see exercise), typically use 5 or 6 relevance classes $y_k$
 
      $$DCG = \sum_{k=1}^n{G_k D_k} = \sum_{k=1}^n{\frac{2^{y_k - 1}}{\log_2(k + 1)}}, \qquad G_k = 2^{y_k} - 1, \, D_k = \frac{1}{\log_2(k+1)}$$
@@ -677,6 +813,18 @@ Metrics for relevance ranking: # TODO: ranking metrics (Precision@k, MAP@K, nDCG
 
          return dcg_ / idcg
      ```
+
+   TODO: compare with:
+
+   ***
+
+   **Discounted Cumulative Gain (DCG)** uses graded relevance as measure of usefulness: lower-ranked documents are discounted by $1 / \log_2(\text{rank})$. Thus, $\text{DCG}_k$ is the total gain accumulated at a particular rank $k$ (the sum of DGs up to rank $k$):
+
+   $$\text{DCG}_k = \text{rel}_1 + \sum_{i=2}^k{\frac{\text{rel}_i}{\log_2(i)}}$$
+
+   **Normalised Discounted Cumulative Gain (nDCG; most used for web search)** averages DCG numbers across a set of queries at specific rank values DCG@k; s.t. an ideal ranking would have an nDCG of $1.0$.
+
+   ***
 
    - Mean Reciprocal Answer Rank (MRAR): for question answering; mean (i.e. over queries) of the reciprocal of the rank of the relevant answer (where only one document is relevant)
 
@@ -786,6 +934,14 @@ In alternative approaches steps 1 and 2 are skipped:
 - Maximization of implicit user feedback
 
 This fits the framework of listwise models: instead of predicting the relevance of the documents independently, an entire ranking is predicted.
+
+Current work in L2R:
+
+- Deep learning models are mainly used
+- No manual feature extraction is applied
+- Using word-embeddings to represent queries and docs, then learn the features automatically
+- Content-independent models: try to learn the pattern of relations between terms in Q and D
+- Content dependent: dependent on the terms
 
 ## 7. Web Information Retrieval
 
@@ -904,7 +1060,7 @@ PageRank: Model the probability that a random surfer clicks a link on a page (br
   - Explicit feedback
   - Implicit feedback
 
-Link-based ranking pioneered by Google. Blew away all early search engines. PageRank is still used in the Google search engine but is just one feature at this point. Machine-learned ranking (learning to rank, L2R) is heavily used. Still, PageRank remains a very useful feature.
+Link-based ranking pioneered by Google. Blew away all early search engines. PageRank is still used in the Google search engine but is just one feature at this point. Machine-learned ranking (learning to rank, L2R / LTR) is heavily used. Still, PageRank remains a very useful feature.
 
 **Personalized PageRank**:
 
@@ -1005,6 +1161,8 @@ An inverted file or index is a sorted list of index terms and their postings, e.
   - $o_i =$ positions in $d$ at which $t$ is observed
 
 Space requirements for text databases of a vocabulary of unique terms:
+
+**Heap's law**: While going through documents, the number of new terms decreases over time: vocabulary growth $v(n) = k \times n^b, b < 1$ typically $0.4 < b < 0.7$.
 
 - Heap's law: vocabulary of size $n$ grows as $\mathcal{O}(n^\beta)$ where $\beta \in [0, 1]$ (often $\in [0.4, 0.6]$) dependent on the type of text.
   - For every new document there will be some new words that weren't in previous documents, but for every new document there will be fewer new words.
@@ -1598,10 +1756,78 @@ LLM-based chatbots:
 
 ## 13. [Retrieval Augmented Generation (RAG)](https://www.dailydoseofds.com/a-crash-course-on-building-rag-systems-part-1-with-implementations/)
 
-Retrieval Augmented Generation (RAG): Allows to add e.g., domain-specific information to the LLM
+Retrieval Augmented Generation (RAG): Allows to add e.g., domain-specific, information to the LLM:
 
 1. Retrieves a set of relevant documents/paragraphs/sentences with a common information retrieval technique
 2. Models an interaction with a large language model (LLM) by prompting the LLM with the retrieved information as context (context-aware reasoning)
 3. The LLM autoregressively generates the answer by attending over the prompt
 
-TODO: <https://opencourse.inf.ed.ac.uk/sites/default/files/https/opencourse.inf.ed.ac.uk/ttds/2024/20-rag-handout.pdf>
+Problem: maximise $P(\text{desired output text} \mid \text{input text})$
+
+Autoregressive next word prediction: $P(\text{Scotland's} \mid \text{What's the capital of Scotland?}) \times P(\text{capital} \mid \text{Scotland's, What's the capital of Scotland?}) \times \dots$
+
+Text-to-text generation:
+
+1. Rule-based systems, dictionaries, statistical models
+2. Recurrent neural networks (RNNs):
+   - predict the next word & update
+   - vanishing gradient problem: forgets the beginning of the text!
+3. Long short-term memory (LSTM):
+   - maintains a long-term memory
+   - breakthrough in machine translation
+   - still limited to a single context vector
+4. Large language models (LLMs):
+   - focus on the relevant parts of the text
+   - parallelism
+   - representations or embeddings (dense, incorporates semantics & context) instead of features (e.g. BoW, sparse)
+   - pre-training:
+     - create training data automatically from a large corpus
+     - masked language modelling: autoregressive or bidirectional
+   - finetuning
+   - prompt engineering: LLMs perform better with clever prompts - _provide instructions, context, examples_ (more data, narrows the search space)!
+
+Downsides of LLMs:
+
+- hallucinations
+- no references to sources
+- difficult to update!
+  - difficult to teach new info (fine-tuning)
+  - harder to make it forget!
+
+Downsides of web search: For 40-65% of searches users want to learn about something, visit a certain page, or do something (web-mediated). Web search is not really needed for these use cases!
+
+1. RAG indexing:
+   - index documents for augmentation, e.g. Wikipedia, internal documents
+   - inverted index is redundant - user queries are prompt and can be very long
+   - create a vector database for texts from documents (size limit!) represented by embeddings (e.g. BERT) - only needs to be done once for each document!
+2. RAG retrieval
+   - dense representations instead of term and document frequencies - handle synonyms & query expansion
+   - documents are already vectorised, so vectorise the query (prompt)
+   - compute similarity
+     - no inverted index - how to collect a subset of documents to compute similarity?
+     - naive approach: compute similarity between query and all documents
+     - approximate nearest neighbour (ANN) algorithm, e.g. hierarchical navigable small worlds (HNSW), links together similar documents, and thus trades off some precision for speed
+   - retrieve the documents most similar to the query
+3. RAG generation:
+   - preferably an LLM with a large context window
+   - retrieved documents appended to the prompt
+
+Static vs. dynamic retrieval:
+
+- Static retrieval: Retrieve before generating an answer
+  - Predict if you need to retrieve, retrieve
+  - Generate first, retrieve & regenerate if needed
+- Dynamic Retrieval: Retrieve during generation
+  - Naïve: Retrieve for each token
+  - Batch: Answer step by step & retrieve if needed for a step
+
+Training RAG:
+
+- Frozen RAG
+  - Don’t train anything
+- Update the model for query encoding
+  - Maximize the similarity between the query and useful documents
+  - Not practical to update the model for document encoding
+- Update the generator (finetune)
+  - Using the prompt + retrieved documents, answers pairs
+  - Not suitable for every use case
